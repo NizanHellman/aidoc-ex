@@ -7,7 +7,7 @@ import pathlib
 import numpy as np
 import yaml
 
-from .strategy import StorageStrategyFactory
+from .strategy import StorageStrategyFactory, UnknownFileTypeError
 
 
 class BaseStorage:
@@ -67,18 +67,11 @@ class LocalStorage(BaseStorage):
             try:
                 strategy = self.strategy_factory.get_strategy(source_path)
                 strategy.save(source_path, dest_path)
-            except ValueError:
-                # Fallback for unknown file types
-                with open(source_path, 'rb') as src, open(dest_path, 'wb') as dst:
-                    dst.write(src.read())
-                    
-            self._index[str(key)] = str(dest_path)
+                self._index[str(key)] = str(dest_path)
+            except UnknownFileTypeError as e:
+                raise UnknownFileTypeError(source_path)
         else:
-            # For other types, serialize to JSON
-            dest_path = file_path.with_suffix('.json')
-            with open(dest_path, 'w') as f:
-                json.dump(data, f)
-            self._index[str(key)] = str(dest_path)
+            raise ValueError("Only file paths are supported for storage")
         
         self._save_index()
 
@@ -94,10 +87,8 @@ class LocalStorage(BaseStorage):
         try:
             strategy = self.strategy_factory.get_strategy(file_path)
             return strategy.load(file_path)
-        except ValueError:
-            # Fallback for unknown file types
-            with open(file_path, 'rb') as f:
-                return f.read()
+        except UnknownFileTypeError as e:
+            raise UnknownFileTypeError(file_path)
 
     def count(self) -> int:
         return len(self._index)

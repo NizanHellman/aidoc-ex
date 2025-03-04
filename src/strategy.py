@@ -1,7 +1,9 @@
-from typing import Any
+from typing import Any, List
 import json
 import yaml
 import pathlib
+import csv
+import numpy as np
 
 
 class StorageStrategy:
@@ -44,17 +46,55 @@ class YamlStrategy(StorageStrategy):
             return yaml.safe_load(f)
 
 
+class NumpyStrategy(StorageStrategy):
+    @classmethod
+    def can_handle(cls, file_path: pathlib.Path) -> bool:
+        return file_path.suffix == '.npy'
+
+    def save(self, source_path: pathlib.Path, dest_path: pathlib.Path) -> None:
+        array_data = np.load(source_path)
+        np.save(dest_path, array_data)
+
+    def load(self, file_path: pathlib.Path) -> np.ndarray:
+        return np.load(file_path)
+
+
+class CsvStrategy(StorageStrategy):
+    @classmethod
+    def can_handle(cls, file_path: pathlib.Path) -> bool:
+        return file_path.suffix == '.csv'
+
+    def save(self, source_path: pathlib.Path, dest_path: pathlib.Path) -> None:
+        with open(source_path, 'r', newline='') as src, open(dest_path, 'w', newline='') as dst:
+            writer = csv.writer(dst)
+            reader = csv.reader(src)
+            writer.writerows(reader)
+
+    def load(self, file_path: pathlib.Path) -> List[List[str]]:
+        with open(file_path, 'r', newline='') as f:
+            return list(csv.reader(f))
+
+
+class UnknownFileTypeError(Exception):
+    """Raised when no strategy is found for a file type"""
+    def __init__(self, file_path: pathlib.Path):
+        self.file_path = file_path
+        self.message = f"No strategy found for file type: {file_path.suffix}"
+        super().__init__(self.message)
+
+
 class StorageStrategyFactory:
     """Factory for creating storage strategies"""
     def __init__(self):
         self.strategies = [
             JsonStrategy(),
             YamlStrategy(),
-            # Add more strategies here
+            NumpyStrategy(),
+            CsvStrategy(),
         ]
 
     def get_strategy(self, file_path: pathlib.Path) -> StorageStrategy:
         for strategy in self.strategies:
             if strategy.can_handle(file_path):
                 return strategy
-        raise ValueError(f"No strategy found for file type: {file_path.suffix}")
+        raise UnknownFileTypeError(file_path)
