@@ -1,45 +1,111 @@
 # aidoc-ex
 
-# Generic Storage API Implementation
+# Local Storage with Strategy Pattern
 
-## Project Description
+A simple Python storage system that demonstrates the Strategy pattern for handling different data types.
 
-We want you to implement a generic storage API. Meaning we want to encapsulate base storage mechanisms (for example the local file system or a remote object storage such as S3) with a single API.
+## Overview
 
-The storage usage can be dynamic and it should support both long term storage, as well as a temporary cache for lengthy calculations, and any future usage with as little code changes as possible. 
-Objects stored via this API should still be readable via 3rd side code/applications, meaning that each object should ideally be saved in its native format. Given that we don't know all of the potential usages of the API, it should support easily customizing the format objects of different types are saved according to user needs.
+This project implements a local storage system that can save and retrieve different types of data using appropriate serialization strategies. The system uses the Strategy pattern to handle different data formats.
 
-## Requirements
-Please define the generic API and implement it for the local file system according to the requirements below. 
+## Features
 
-The list below is a minimal set of requirements, you may expand it.
-Functions signatures written in this section are written as an example and you may change them as you see fit.
-You may implement the requirements in whatever order you wish. 
+- Save and retrieve different types of data:
+  - JSON-serializable data (dictionaries and lists)
+  - NumPy arrays (.npy files)
+  - CSV data (lists of lists)
+  - Custom objects (SomeClass example)
+- Extensible design using the Strategy pattern
+- Simple key-value storage interface
+- Persistent storage with automatic index management
+- Type-specific serialization strategies
+- Automatic file extension handling
 
-### The API should support saving and loading objects of any type
+## Usage
 
-### The API should enable metadata retrieval regarding the saved objects
-How many objects are currently saved in the storage, whether a specific object exists in the storage, and anything else you think might be useful.
+```python
+from storage import LocalStorage
 
-### Implement support for at least 3 different types of objects
-- Numpy arrays as .npy files
-- Dataframes as .csv files
-- General types as .json files 
+# Initialize storage
+storage = LocalStorage("example_storage")
 
-### Write adequate tests
+# Store data
+user = {
+    "name": "Nizan",
+    "age": 33,
+    "hobbies": ["coding", "gaming"]
+}
+storage.save("user", user)
 
-## Implementation Details
+# Retrieve data
+loaded_user = storage.get("user")
+print(f"Name: {loaded_user['name']}")
+```
 
-The current implementation includes:
-- Base Storage interface defining the core API
-- Local Storage implementation supporting:
-  - JSON files
-  - YAML files
-  - CSV files
-  - NumPy arrays (.npy)
-  - Custom class instances
-
-## Installation
+## Project Structure
 
 ```
+src/
+├── __init__.py
+├── storage.py     # Main storage implementation
+├── strategy.py    # Strategy pattern implementation
+└── main.py        # Example usage
+```
+
+## Running the Example
+```bash
+python -m src.main
+```
+## Running Tests
+
+```bash
+pytest tests/
+```
+
+# Design Patterns Used
+
+- Strategy Pattern: For handling different data types and serialization formats
+- Factory Pattern: For creating appropriate strategies based on data type
+
+## Extensibility
+
+The system is designed to be easily extensible in two ways:
+
+### 1. Adding New Data Types
+
+To add support for a new data type:
+1. Create a new strategy class that implements the `StorageStrategy` interface
+2. Add the strategy to the `StorageStrategyFactory`
+
+Example:
+```python
+class XmlStrategy(StorageStrategy):
+    @classmethod
+    def can_handle(cls, source: Any) -> bool:
+        return isinstance(source, XmlElement)
+
+    def save(self, source: Any, dest_path: pathlib.Path) -> None:
+        # Implementation for saving XML
+```
+
+### 2. Adding New Storage Backends
+
+To add a new storage backend (e.g., S3, Redis):
+1. Create a new class that inherits from `BaseStorage`
+2. Implement the required methods (`save`, `get`, `exists`, `count`)
+
+Example:
+```python
+class S3Storage(BaseStorage):
+    def __init__(self, bucket_name: str):
+        super().__init__()
+        self.bucket = bucket_name
+        self.strategy_factory = StorageStrategyFactory()
+
+    def save(self, key: Any, data: Any) -> None:
+        # Implementation for S3 storage
+```
+
+The strategy system will work with any storage backend that implements the `BaseStorage` interface.
+
 
