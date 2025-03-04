@@ -1,13 +1,7 @@
-import csv
-from typing import Any, Dict
+from typing import Any
 import json
-import os
 import pathlib
-
-import numpy as np
-import yaml
-
-from .strategy import StorageStrategyFactory, UnknownFileTypeError
+from .strategy import StorageStrategyFactory, UnknownTypeError
 
 
 class BaseStorage:
@@ -56,24 +50,17 @@ class LocalStorage(BaseStorage):
         return self.storage_dir / f"{key}"
 
     def save(self, key: Any, data: Any) -> None:
-        """Save data to a file in the storage directory"""
+        """Save data object to storage"""
         file_path = self._get_file_path(str(key))
         
-        if isinstance(data, str) and os.path.exists(data):
-            # If data is a file path, copy the file to storage
-            source_path = pathlib.Path(data)
-            dest_path = file_path.with_suffix(source_path.suffix)
-            
-            try:
-                strategy = self.strategy_factory.get_strategy(source_path)
-                strategy.save(source_path, dest_path)
-                self._index[str(key)] = str(dest_path)
-            except UnknownFileTypeError as e:
-                raise UnknownFileTypeError(source_path)
-        else:
-            raise ValueError("Only file paths are supported for storage")
-        
-        self._save_index()
+        try:
+            strategy = self.strategy_factory.get_strategy(data)
+            dest_path = file_path.with_suffix(strategy.handles_extension())
+            strategy.save(data, dest_path)
+            self._index[str(key)] = str(dest_path)
+            self._save_index()
+        except UnknownTypeError as e:
+            raise UnknownTypeError(data)
 
     def get(self, key: Any) -> Any:
         """Retrieve data from storage"""
@@ -87,8 +74,8 @@ class LocalStorage(BaseStorage):
         try:
             strategy = self.strategy_factory.get_strategy(file_path)
             return strategy.load(file_path)
-        except UnknownFileTypeError as e:
-            raise UnknownFileTypeError(file_path)
+        except UnknownTypeError as e:
+            raise UnknownTypeError(file_path)
 
     def count(self) -> int:
         return len(self._index)
